@@ -21,7 +21,7 @@
 package edp.rider.kafka
 
 import edp.rider.common.{RiderConfig, RiderLogger}
-import edp.wormhole.kafka.WormholeTopicCommand
+import edp.wormhole.kafka010.WormholeTopicCommand
 
 import scala.language.postfixOps
 
