@@ -31,9 +31,9 @@ import edp.rider.rest.util.CommonUtils._
 import edp.rider.rest.util.StreamUtils
 import edp.rider.rest.util.StreamUtils._
 import edp.rider.yarn.{ShellUtils, SubmitYarnJob}
-import edp.wormhole.kafka.WormholeGetOffsetUtils._
 import edp.wormhole.util.DateUtils
 import edp.wormhole.util.JsonUtils._
+import edp.rider.kafka.WormholeGetOffsetUtils._
 import slick.jdbc.MySQLProfile.api._
 import slick.lifted.TableQuery
 
@@ -273,11 +273,11 @@ class StreamDal(streamTable: TableQuery[StreamTable],
 
 
   // get kafka instance id, url
-  def getKafkaInfo(streamId: Long): (Long, String) = {
+  def getKafkaInfo(streamId: Long): (Long, String, String) = {
     Await.result(db.run((streamQuery.filter(_.id === streamId) join instanceQuery on (_.instanceId === _.id))
       .map {
-        case (_, instance) => (instance.id, instance.connUrl)
-      }.result.head).mapTo[(Long, String)], minTimeOut)
+        case (_, instance) => (instance.id, instance.connUrl, instance.version.get)
+      }.result.head).mapTo[(Long, String, String)], minTimeOut)
   }
 
   def getStreamKafkaMap(streamIds: Seq[Long]): Map[Long, String] = {
@@ -325,9 +325,11 @@ class StreamDal(streamTable: TableQuery[StreamTable],
 
   def genAllOffsets(topics: Seq[StreamTopicTemp], kafkaMap: Map[Long, String], streamGroupIdMap: Map[Long, String]): Seq[TopicAllOffsets] = {
     topics.map(topic => {
-      val earliest = getEarliestOffset(kafkaMap(topic.streamId), topic.name, RiderConfig.kerberos.enabled)
-      val latest = getLatestOffset(kafkaMap(topic.streamId), topic.name, RiderConfig.kerberos.enabled)
-      val consumed = getConsumerOffset(kafkaMap(topic.streamId), streamGroupIdMap(topic.streamId), topic.name, latest.split(",").length, RiderConfig.kerberos.enabled)
+      val instanceId = Await.result(streamDal.findByFilter(_.id === topic.streamId),minTimeOut).headOption.map(_.instanceId).get
+      val instance = Await.result(instanceDal.findById(instanceId),minTimeOut).get
+      val earliest = getEarliestOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), topic.name, RiderConfig.kerberos.enabled)
+      val latest = getLatestOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), topic.name, RiderConfig.kerberos.enabled)
+      val consumed = getConsumerOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), streamGroupIdMap(topic.streamId), topic.name, latest.split(",").length, RiderConfig.kerberos.enabled)
       TopicAllOffsets(topic.id, topic.name, topic.rate, consumed, earliest, latest)
     })
   }

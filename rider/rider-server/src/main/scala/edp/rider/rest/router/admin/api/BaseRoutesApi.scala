@@ -23,7 +23,7 @@ package edp.rider.rest.router.admin.api
 
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.server.{Directives, Route}
-import edp.rider.common.{RiderConfig, RiderLogger}
+import edp.rider.common.{KafkaVersion, RiderConfig, RiderLogger}
 import edp.rider.rest.persistence.base.{BaseDal, BaseEntity, BaseTable, SimpleBaseEntity}
 import edp.rider.rest.persistence.entities._
 import edp.rider.rest.router.{JsonSerializer, ResponseJson, ResponseSeqJson, SessionClass}
@@ -216,7 +216,7 @@ class BaseAdminApiImpl[T <: BaseTable[A], A <: BaseEntity](baseDal: BaseDal[T, A
 
   private def generateEntity(base: BaseEntity, session: SessionClass): BaseEntity = {
     base match {
-      case instance: Instance => Instance(instance.id, instance.nsInstance, Some(instance.desc.getOrElse("")), instance.nsSys, instance.connUrl, instance.active, instance.createTime, instance.createBy, currentSec, session.userId)
+      case instance: Instance => Instance(instance.id, instance.nsInstance, Some(instance.desc.getOrElse("")), instance.nsSys, instance.connUrl, Some(instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString)),instance.active, instance.createTime, instance.createBy, currentSec, session.userId)
       //      case user: User => User(user.id, user.email, user.password, user.name, user.roleType, user.active, user.createTime, user.createBy, currentSec, session.userId)
     }
   }

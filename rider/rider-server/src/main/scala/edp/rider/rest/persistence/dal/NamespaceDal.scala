@@ -27,7 +27,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
 import akka.util.ByteString
 import edp.rider.RiderStarter.modules._
 import edp.rider.RiderStarter.{materializer, system}
-import edp.rider.common.{RiderConfig, RiderLogger}
+import edp.rider.common.{KafkaVersion, RiderConfig, RiderLogger}
 import edp.rider.module.DbModule._
 import edp.rider.rest.persistence.base.{BaseDal, BaseDalImpl}
 import edp.rider.rest.persistence.entities._
@@ -38,6 +38,7 @@ import edp.wormhole.util.JsonUtils
 import edp.wormhole.util.JsonUtils._
 import slick.jdbc.MySQLProfile.api._
 import slick.lifted.TableQuery
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -161,7 +162,7 @@ class NamespaceDal(namespaceTable: TableQuery[NamespaceTable],
         kafka => {
           val instanceSearch = Await.result(instanceDal.findByFilter(_.connUrl === kafka), minTimeOut)
           if (instanceSearch.isEmpty) {
-            instanceSeq += Instance(0, s"dbusKafka$i", Some("dbus kafka !!!"), "kafka", kafka, active = true, currentSec, session.userId, currentSec, session.userId)
+            instanceSeq += Instance(0, s"dbusKafka$i", Some("dbus kafka !!!"), "kafka", kafka, Some(KafkaVersion.KAFKA_MIN.toString),active = true, currentSec, session.userId, currentSec, session.userId)
             i = i + 1
           }
           else kafkaIdMap.put(kafka, instanceSearch.head.id)

@@ -33,8 +33,10 @@ import edp.rider.rest.router.{JsonSerializer, ResponseJson, ResponseSeqJson, Ses
 import edp.rider.rest.util.CommonUtils._
 import edp.rider.rest.util.ResponseUtils._
 import edp.rider.rest.util.{AuthorizationProvider, FlowUtils, StreamUtils}
-import edp.wormhole.kafka.WormholeGetOffsetUtils._
-import edp.wormhole.kafka.{WormholeKafkaConsumer, WormholeKafkaProducer}
+import edp.rider.kafka.WormholeGetOffsetUtils._
+import edp.wormhole.kafka.WormholeKafkaProducer
+import edp.wormhole.kafka010
+import edp.wormhole.kafka010.WormholeKafkaConsumer
 import edp.wormhole.ums.UmsProtocolType
 import edp.wormhole.util.{DateUtils, JsonUtils}
 import org.apache.commons.collections.CollectionUtils
@@ -178,7 +180,7 @@ class FlowUserApi(flowDal: FlowDal, streamDal: StreamDal, flowUdfDal: FlowUdfDal
                                   val ns = namespaceDal.getNsDetail(flow.sourceNs)
                                   val latestOffset =
                                     try {
-                                      getLatestOffset(ns._1.connUrl, ns._2.nsDatabase, RiderConfig.kerberos.enabled)
+                                      getLatestOffset(ns._1.connUrl, ns._1.version.getOrElse(KafkaVersion.KAFKA_010.toString), ns._2.nsDatabase, RiderConfig.kerberos.enabled)
                                     } catch {
                                       case _: Exception =>
                                         ""
@@ -359,8 +361,8 @@ class FlowUserApi(flowDal: FlowDal, streamDal: StreamDal, flowUdfDal: FlowUdfDal
     val newTopics = topics.userDefinedTopics.filter(!userDefinedTopicsName.contains(_))
     val newTopicsOffset = newTopics.map(topic => {
       val kafkaInfo = flowDal.getFlowKafkaInfo(flowId)
-      val latestOffset = getLatestOffset(kafkaInfo._2, topic, RiderConfig.kerberos.enabled)
-      val earliestOffset = getEarliestOffset(kafkaInfo._2, topic, RiderConfig.kerberos.enabled)
+      val latestOffset = getLatestOffset(kafkaInfo._2, kafkaInfo._3, topic, RiderConfig.kerberos.enabled)
+      val earliestOffset = getEarliestOffset(kafkaInfo._2, kafkaInfo._3, topic, RiderConfig.kerberos.enabled)
       val consumedOffset = earliestOffset
       SimpleFlowTopicAllOffsets(topic, RiderConfig.flink.defaultRate, consumedOffset, earliestOffset, latestOffset)
     })
@@ -419,8 +421,8 @@ class FlowUserApi(flowDal: FlowDal, streamDal: StreamDal, flowUdfDal: FlowUdfDal
     }
     val kafkaInfo = flowDal.getFlowKafkaInfo(flowId)
     // get kafka earliest/latest offset
-    val latestOffset = getLatestOffset(kafkaInfo._2, postTopic.name, RiderConfig.kerberos.enabled)
-    val earliestOffset = getEarliestOffset(kafkaInfo._2, postTopic.name, RiderConfig.kerberos.enabled)
+    val latestOffset = getLatestOffset(kafkaInfo._2, kafkaInfo._3, postTopic.name, RiderConfig.kerberos.enabled)
+    val earliestOffset = getEarliestOffset(kafkaInfo._2, kafkaInfo._3, postTopic.name, RiderConfig.kerberos.enabled)
 
     // response
     val topicResponse = SimpleFlowTopicAllOffsets(postTopic.name, RiderConfig.flink.defaultRate, earliestOffset, earliestOffset, latestOffset)
@@ -794,7 +796,7 @@ class FlowUserApi(flowDal: FlowDal, streamDal: StreamDal, flowUdfDal: FlowUdfDal
                       val topicList = topics.map(topic => JsonUtils.json2caseClass[FeedbackErrTopicInfo](topic.toString)).seq
                       var rst = true
                       val partitionResults: ListBuffer[FeedbackPartitionResult] = new ListBuffer[FeedbackPartitionResult]()
-                      WormholeKafkaProducer.init(instance.connUrl, None, RiderConfig.kerberos.enabled)
+                      kafka010.WormholeKafkaProducer.init(instance.connUrl, None, RiderConfig.kerberos.enabled)
                       val kafkaConsumer = WormholeKafkaConsumer.initConsumer(instance.connUrl, FlowUtils.getFlowName(feedbackError.get.flowId, feedbackError.get.sourceNamespace, feedbackError.get.sinkNamespace), None, RiderConfig.kerberos.enabled)
                       topicList.foreach(topicInfo => {
                         topicInfo.partitionOffset.foreach(parOffset => {
@@ -810,10 +812,10 @@ class FlowUserApi(flowDal: FlowDal, streamDal: StreamDal, flowUdfDal: FlowUdfDal
                               try {
                                 if (rechargeType.protocolType.equals("all")) {
                                   backFillRecordCount += 1
-                                  WormholeKafkaProducer.sendMessage(topicInfo.topicName, consumeRecord.value(), Some(consumeRecord.key()), instance.connUrl)
+                                  kafka010.WormholeKafkaProducer.sendMessage(topicInfo.topicName, consumeRecord.value(), Some(consumeRecord.key()), instance.connUrl)
                                 } else if (recordKey.contains(rechargeType.protocolType.toLowerCase) ) {
                                   backFillRecordCount += 1
-                                  WormholeKafkaProducer.sendMessage(topicInfo.topicName, consumeRecord.value(), Some(consumeRecord.key()), instance.connUrl)
+                                  kafka010.WormholeKafkaProducer.sendMessage(topicInfo.topicName, consumeRecord.value(), Some(consumeRecord.key()), instance.connUrl)
                                 }
                               } catch {
                                 case e: Throwable =>

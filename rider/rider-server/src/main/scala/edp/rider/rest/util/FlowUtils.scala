@@ -34,8 +34,7 @@ import edp.rider.yarn.SubmitYarnJob._
 import edp.rider.yarn.{ShellUtils, YarnClientLog}
 import edp.rider.yarn.YarnStatusQuery._
 import edp.rider.zookeeper.PushDirective
-import edp.wormhole.kafka.WormholeGetOffsetUtils
-import edp.wormhole.kafka.WormholeGetOffsetUtils._
+import edp.rider.kafka.WormholeGetOffsetUtils._
 import edp.wormhole.ums.UmsProtocolType._
 import edp.wormhole.util.CommonUtils._
 import edp.wormhole.util.DateUtils._
@@ -813,8 +812,8 @@ object FlowUtils extends RiderLogger {
         if (topicSearch.isEmpty) {
           val instance = Await.result(instanceDal.findByFilter(_.id === ns.nsInstanceId), minTimeOut).head
           val database = Await.result(databaseDal.findByFilter(_.id === ns.nsDatabaseId), minTimeOut).head
-          val latestKafkaOffset = getLatestOffset(instance.connUrl, database.nsDatabase, RiderConfig.kerberos.enabled)
-          val lastConsumedOffset = getConsumerOffset(instance.connUrl, streamName, database.nsDatabase, latestKafkaOffset.split(",").length, RiderConfig.kerberos.enabled)
+          val latestKafkaOffset = getLatestOffset(instance.connUrl, instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), database.nsDatabase, RiderConfig.kerberos.enabled)
+          val lastConsumedOffset = getConsumerOffset(instance.connUrl, instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), streamName, database.nsDatabase, latestKafkaOffset.split(",").length, RiderConfig.kerberos.enabled)
           val offset =
             if (lastConsumedOffset.split(",").exists(_.split(":").length == 1)) latestKafkaOffset
             else lastConsumedOffset
@@ -1394,11 +1393,12 @@ object FlowUtils extends RiderLogger {
 
   def genFlowAllOffsets(topics: Seq[FlowTopicTemp], kafkaMap: Map[Long, String]): Seq[TopicAllOffsets] = {
     topics.map(topic => {
-      val earliest = getEarliestOffset(kafkaMap(topic.flowId), topic.topicName, RiderConfig.kerberos.enabled)
-      val latest = getLatestOffset(kafkaMap(topic.flowId), topic.topicName, RiderConfig.kerberos.enabled)
       val flow = Await.result(flowDal.findById(topic.flowId), minTimeOut).get
+      val kafkaInfo = flowDal.getFlowKafkaInfo(topic.flowId)
+      val earliest = getEarliestOffset(kafkaMap(topic.flowId), kafkaInfo._3, topic.topicName, RiderConfig.kerberos.enabled)
+      val latest = getLatestOffset(kafkaMap(topic.flowId), kafkaInfo._3, topic.topicName, RiderConfig.kerberos.enabled)
       val flowName = FlowUtils.getFlowName(flow.id, flow.sourceNs, flow.sinkNs)
-      val consumedLatestOffset = getConsumerOffset(kafkaMap(topic.flowId), flowName, topic.topicName, latest.split(",").length, RiderConfig.kerberos.enabled)
+      val consumedLatestOffset = getConsumerOffset(kafkaMap(topic.flowId), kafkaInfo._3, flowName, topic.topicName, latest.split(",").length, RiderConfig.kerberos.enabled)
       TopicAllOffsets(topic.id, topic.topicName, topic.rate, consumedLatestOffset, earliest, latest)
     })
   }
@@ -1471,7 +1471,7 @@ object FlowUtils extends RiderLogger {
         .filter(_.name == db.nsDatabase).head.consumedLatestOffset
       //      val offset = if (preStreamOffset < driftStreamOffset) preStreamOffset
       //      else driftStreamOffset
-      val activeTopicOffset = WormholeGetOffsetUtils.getEarliestOffset(nsDetail._1.connUrl, db.nsDatabase, RiderConfig.kerberos.enabled)
+      val activeTopicOffset = getEarliestOffset(nsDetail._1.connUrl, nsDetail._1.version.getOrElse(KafkaVersion.KAFKA_MIN.toString),db.nsDatabase, RiderConfig.kerberos.enabled)
       val offset = getMinStreamOffsets(activeTopicOffset, preStreamOffset, driftStreamOffset).toString
       (offset,
         s"it's available to drift, ${preFlowStream.streamName} stream consumed topic ${db.nsDatabase} offset is $preStreamOffset, ${driftStream.name} stream consumed offset is $driftStreamOffset, ${driftStream.name} stream ${db.nsDatabase} offset will be update to $offset. The final offset depends on the actual operation time!!!")

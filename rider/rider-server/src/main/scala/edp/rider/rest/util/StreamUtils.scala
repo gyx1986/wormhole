@@ -36,12 +36,11 @@ import edp.rider.yarn.YarnStatusQuery.{getActiveResourceManager, getAllYarnAppSt
 import edp.rider.yarn.{ShellUtils, SubmitYarnJob, YarnClientLog}
 import edp.rider.zookeeper.PushDirective
 import edp.rider.zookeeper.PushDirective._
-import edp.wormhole.kafka.WormholeGetOffsetUtils._
 import edp.wormhole.ums.UmsProtocolType._
 import edp.wormhole.ums.UmsSchemaUtils.toUms
 import edp.wormhole.util.JsonUtils._
 import slick.jdbc.MySQLProfile.api._
-
+import edp.rider.kafka.WormholeGetOffsetUtils._
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.concurrent.Await
@@ -324,7 +323,8 @@ object StreamUtils extends RiderLogger {
       })
       if (addDefaultTopic) {
         val broker = getKafkaByStreamId(streamId)
-        val blankTopicOffset = getLatestOffset(broker, RiderConfig.spark.wormholeHeartBeatTopic, RiderConfig.kerberos.enabled)
+        val version = getKafkaVersionByStreamId(streamId)
+        val blankTopicOffset = getLatestOffset(broker, version, RiderConfig.spark.wormholeHeartBeatTopic, RiderConfig.kerberos.enabled)
         val blankTopic = Directive(0, DIRECTIVE_TOPIC_SUBSCRIBE.toString, streamId, 0, Seq(streamId, currentMicroSec, RiderConfig.spark.wormholeHeartBeatTopic, RiderConfig.spark.topicDefaultRate, blankTopicOffset, "initial").mkString("#"), zkConURL, currentSec, userId)
         directiveSeq += blankTopic
       }
@@ -612,6 +612,11 @@ object StreamUtils extends RiderLogger {
   def getKafkaByStreamId(id: Long): String = {
     val kakfaId = Await.result(streamDal.findById(id), minTimeOut).get.instanceId
     Await.result(instanceDal.findById(kakfaId), minTimeOut).get.connUrl
+  }
+
+  def getKafkaVersionByStreamId(id: Long): String= {
+    val kakfaId = Await.result(streamDal.findById(id), minTimeOut).get.instanceId
+    Await.result(instanceDal.findById(kakfaId), minTimeOut).get.version.getOrElse(KafkaVersion.KAFKA_MIN.toString)
   }
 
   def getLogPath(appName: String) = s"${RiderConfig.spark.clientLogRootPath}/streams/$appName-${CommonUtils.currentNodSec}.log"
