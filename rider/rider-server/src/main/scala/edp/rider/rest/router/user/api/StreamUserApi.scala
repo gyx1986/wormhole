@@ -881,7 +881,7 @@ class StreamUserApi(jobDal: JobDal, streamDal: StreamDal, projectDal: ProjectDal
                     riderLogger.info(s"user ${session.userId} get flow of stream $streamId failed caused by there is no flow existing in the stream.")
                     complete(OK, setFailedResponse(session, "there is no flow existing in the stream."))
                   case Seq(flowSeq@_*) =>
-                    val flowPrioritySeq = flowSeq.map(flow => new FlowPriority(flow.id, flow.flowName, flow.priorityId)).seq
+                    val flowPrioritySeq = flowSeq.map(flow => new FlowPriority(flow.id, flow.id + ":" + flow.flowName, flow.priorityId)).seq
                     complete(OK, ResponseJson[FlowPriorities](getHeader(200, session), new FlowPriorities(flowPrioritySeq)))
                 }
               } else {
