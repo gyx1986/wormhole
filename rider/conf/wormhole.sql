@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `instance` (
   `desc` VARCHAR(1000) NULL,
   `ns_sys` VARCHAR(30) NOT NULL,
   `conn_url` VARCHAR(200) NOT NULL,
+  `version` VARCHAR(20) NOT NULL DEFAULT '0.10.0.0',
   `active` TINYINT(1) NOT NULL,
   `create_time` TIMESTAMP NOT NULL DEFAULT '1970-01-01 08:00:01',
   `create_by` BIGINT NOT NULL,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `instance` (
 ENGINE = InnoDB CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 drop index `conn_url` on `instance`;
+alter table `instance` add column `version` varchar(20) default '0.10.0.0';
 
 CREATE TABLE IF NOT EXISTS `ns_database` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
