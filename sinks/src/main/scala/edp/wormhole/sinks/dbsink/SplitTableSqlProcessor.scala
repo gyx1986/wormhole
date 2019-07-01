@@ -340,7 +340,7 @@ class SplitTableSqlProcessor(sinkProcessConfig: SinkProcessConfig, schemaMap: co
     try {
       conn = DbConnection.getConnection(connectionConfig)
       conn.setAutoCommit(false)
-      logger.info(s"@write list.size:${tupleList.length} masterSql $masterSql")
+      logger.info(s"@write list.size:${tupleList} masterSql $masterSql masterUpdateFieldNames: $masterUpdateFieldNames")
       logger.info(s"@write list.size:${tupleList.length} subSql $subSql")
       tupleList.foreach(tuples => {
         try {

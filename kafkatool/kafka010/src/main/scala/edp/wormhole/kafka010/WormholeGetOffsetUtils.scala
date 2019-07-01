@@ -68,10 +68,9 @@ object WormholeGetOffsetUtils {
       props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, maxWaitMs.toString)
       props.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, "80000")
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-      props.put(ConsumerConfig.CLIENT_ID_CONFIG,"test")
+    //  props.put(ConsumerConfig.CLIENT_ID_CONFIG,"test")
       if (kerberos) {
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT")
-        props.put("sasl.kerberos.service.name", "kafka")
       }
 
       val consumer = new KafkaConsumer[String, String](props)
@@ -146,7 +145,8 @@ object WormholeGetOffsetUtils {
         case ex: Exception =>
           logger.error(s"get consumer groupId $groupId for topic $topic offset failed", ex)
           channel.disconnect()
-          Range(0, partitions).mkString(":,").concat(":")
+//          Range(0, partitions).mkString(":,").concat(":")
+          throw ex
       }
     } else {
       logger.error(s"get consumer groupId $groupId for topic $topic offset failed")
@@ -167,7 +167,6 @@ object WormholeGetOffsetUtils {
     props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokers)
     if (kerberos) {
       props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT")
-      props.put("sasl.kerberos.service.name", "kafka")
     }
     val adminClient = AdminClient.create(props)
     val requestBuilder = new GroupCoordinatorRequest(groupId)

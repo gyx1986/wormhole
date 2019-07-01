@@ -210,6 +210,7 @@ object DataFrameTransform extends EdpLogging {
           })
         } else {
           resultSet = stmt.executeQuery(executeSql)
+          logInfo(s"resultSet:$resultSet")
           dataMapFromDb = getDataMap(resultSet, dbOutPutSchemaMap, operate.lookupTableFieldsAlias.get)
         }
       }

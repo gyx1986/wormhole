@@ -96,11 +96,14 @@ object SparkxUtils extends EdpLogging{
 
 
   def jsonGetValue(namespace: String, protocolType: UmsProtocolType, json: String, jsonSourceParseMap: Map[(UmsProtocolType, String), (Seq[UmsField], Seq[FieldInfo], ArrayBuffer[(String, String)])]): (Seq[UmsField], Seq[UmsTuple]) = {
+    logInfo(s"jsonSourceParseMap:$jsonSourceParseMap,protocolType:$protocolType,namespace:$namespace")
     if (jsonSourceParseMap.contains((protocolType, namespace))) {
       val mapValue: (Seq[UmsField], Seq[FieldInfo], ArrayBuffer[(String, String)]) = jsonSourceParseMap((protocolType, namespace))
+      logInfo(s"mapValue:$mapValue")
       (mapValue._1, JsonParseUtils.dataParse(json, mapValue._2, mapValue._3))
     } else {
       val ums = UmsCommonUtils.json2Ums(json)
+      logInfo(s"ums:$ums")
       (ums.schema.fields_get, ums.payload_get)
     }
   }

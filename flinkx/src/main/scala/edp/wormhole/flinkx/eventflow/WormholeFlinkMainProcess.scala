@@ -78,25 +78,30 @@ class WormholeFlinkMainProcess(config: WormholeFlinkxConfig, umsFlowStart: Ums) 
   private val kafkaDataTag = OutputTag[String]("kafkaDataException")
 
   def process(): JobExecutionResult = {
+    try {
+      val initialTs = System.currentTimeMillis
+      val swiftsSql = getSwiftsSql(swiftsString, UmsFlowStartUtils.extractDataType(flowStartFields, flowStartPayload))
+      val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
+      env.setParallelism(config.parallelism)
+      manageCheckpoint(env)
+      val tableEnv = TableEnvironment.getTableEnvironment(env)
+      tableEnv.config.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"))
+      udfRegister(tableEnv)
+      assignTimeCharacteristic(env)
 
-    val initialTs = System.currentTimeMillis
-    val swiftsSql = getSwiftsSql(swiftsString, UmsFlowStartUtils.extractDataType(flowStartFields, flowStartPayload))
-    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
-    env.setParallelism(config.parallelism)
-    manageCheckpoint(env)
-    val tableEnv = TableEnvironment.getTableEnvironment(env)
-    tableEnv.config.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"))
-    udfRegister(tableEnv)
-    assignTimeCharacteristic(env)
+      val inputStream: DataStream[Row] = createKafkaStream(env, umsFlowStart.schema.namespace.toLowerCase, initialTs)
+      val watermarkStream = assignTimestamp(inputStream, immutableSourceSchemaMap)
 
-    val inputStream: DataStream[Row] = createKafkaStream(env, umsFlowStart.schema.namespace.toLowerCase, initialTs)
-    val watermarkStream = assignTimestamp(inputStream, immutableSourceSchemaMap)
-
-    val swiftsTs = System.currentTimeMillis
-    val (stream, schemaMap) = new SwiftsProcess(watermarkStream, exceptionConfig, tableEnv, swiftsSql, swiftsSpecialConfig, timeCharacteristic, config).process()
-    SinkProcess.doProcess(stream, umsFlowStart, schemaMap, config, initialTs, swiftsTs, exceptionConfig)
-    //      WormholeKafkaProducer.sendMessage(config.kafka_output.feedback_topic_name, FeedbackPriority.FeedbackPriority1, feedbackDirective(DateUtils.currentDateTime, directiveId, UmsFeedbackStatus.SUCCESS, streamId, ""), Some(UmsProtocolType.FEEDBACK_DIRECTIVE+"."+streamId), config.kafka_output.brokers)
-    env.execute(config.flow_name)
+      val swiftsTs = System.currentTimeMillis
+      val (stream, schemaMap) = new SwiftsProcess(watermarkStream, exceptionConfig, tableEnv, swiftsSql, swiftsSpecialConfig, timeCharacteristic, config).process()
+      SinkProcess.doProcess(stream, umsFlowStart, schemaMap, config, initialTs, swiftsTs, exceptionConfig)
+      //      WormholeKafkaProducer.sendMessage(config.kafka_output.feedback_topic_name, FeedbackPriority.FeedbackPriority1, feedbackDirective(DateUtils.currentDateTime, directiveId, UmsFeedbackStatus.SUCCESS, streamId, ""), Some(UmsProtocolType.FEEDBACK_DIRECTIVE+"."+streamId), config.kafka_output.brokers)
+      env.execute(config.flow_name)
+    }catch {
+      case e:Throwable=>
+        logger.error("flink error,",e)
+        null
+    }
   }
 
 

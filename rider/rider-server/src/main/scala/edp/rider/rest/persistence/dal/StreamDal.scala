@@ -327,6 +327,7 @@ class StreamDal(streamTable: TableQuery[StreamTable],
     topics.map(topic => {
       val instanceId = Await.result(streamDal.findByFilter(_.id === topic.streamId),minTimeOut).headOption.map(_.instanceId).get
       val instance = Await.result(instanceDal.findById(instanceId),minTimeOut).get
+      riderLogger.info(s"instance:$instanceId,genAllOffsets:${instance.version}")
       val earliest = getEarliestOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), topic.name, RiderConfig.kerberos.enabled)
       val latest = getLatestOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), topic.name, RiderConfig.kerberos.enabled)
       val consumed = getConsumerOffset(kafkaMap(topic.streamId), instance.version.getOrElse(KafkaVersion.KAFKA_MIN.toString), streamGroupIdMap(topic.streamId), topic.name, latest.split(",").length, RiderConfig.kerberos.enabled)

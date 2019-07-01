@@ -70,7 +70,15 @@ trait Directive extends EdpLogging {
         (tp._1, (tp._2._1, tp._2._2))
       }).toMap, delTopicList.map(_._1).toSet)
 
-      OffsetPersistenceManager.doTopicPersistence(config, addTopicList, delTopicList)
+      val addTopicMap=mutable.HashMap.empty[String,Long]
+      val delTopicMap=mutable.HashMap.empty[String,Long]
+      addTopicList.foreach(topic=>
+        addTopicMap.put(topic._1.topic_name,topic._2))
+      delTopicList.foreach(topic=>
+        delTopicMap.put(topic._1,topic._2))
+      OffsetPersistenceManager.doTopicPersistence(config, addTopicList.filter(topic => if(delTopicMap.contains(topic._1.topic_name))
+         topic._2 > delTopicMap(topic._1.topic_name) else true), delTopicList.filter(topic => if(addTopicMap.contains(topic._1))
+         topic._2 > addTopicMap(topic._1) else true))
     }
   }
 
